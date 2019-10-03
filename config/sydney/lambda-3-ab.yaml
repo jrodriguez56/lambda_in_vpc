@@ -1,0 +1,13 @@
+template_path: "lambda.yaml"
+
+parameters:
+  LambdaFunctionName: "lambda-3-ab"
+  LambdaFunctionDescription: "lambda-3-ab"
+  LogRetention: "7"
+  SubnetIds:
+    - !stack_output sydney/vpc.yaml::PrivateSubnet1AID
+    - !stack_output sydney/vpc.yaml::PrivateSubnet2AID
+    - !stack_output sydney/vpc.yaml::PrivateSubnet3AID
+  SecurityGroupIds:
+    - !stack_output sydney/sec-group-a.yaml::SecurityGroupId
+    - !stack_output sydney/sec-group-b.yaml::SecurityGroupId

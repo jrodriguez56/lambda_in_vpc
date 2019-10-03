@@ -1,0 +1,6 @@
+template_path: "security-group.yaml"
+
+parameters:
+  VpcId:
+    !stack_output ohio/vpc.yaml::VPCID
+  SecurityGroupName: "sec-group-a"

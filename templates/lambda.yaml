@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+
+  LambdaFunctionName:
+    Type: String
+    Description: Lambda function name
+
+  LambdaFunctionDescription:
+    Type: String
+    Description: Lambda function description
+
+  LogRetention:
+    Type: String
+    Description: Number of days to retain access logs for the stage of all methods
+    Default: 7
+
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: A Comma Delimited List of Subnet Ids for this Lambda to provision inside a VPC
+
+  SecurityGroupIds:
+    Type: CommaDelimitedList
+    Description: A Comma Delimited List of Security GRoup Ids for this Lambda to provision inside a VPC
+
+Resources:
+
+  LambdaFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: LambdaFunction
+    Properties:
+      RetentionInDays: !Ref LogRetention
+      LogGroupName: !Sub /aws/lambda/${LambdaFunction}
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AWSLambdaExecute"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        - "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Runtime: python3.6
+      VpcConfig:
+        SecurityGroupIds:
+          !Ref SecurityGroupIds
+        SubnetIds:
+          !Ref SubnetIds
+      Timeout: 898
+      TracingConfig:
+        Mode: Active
+      FunctionName: !Ref LambdaFunctionName
+      Description: !Ref LambdaFunctionDescription
+      Code:
+        ZipFile: |
+          import logging
+
+          log = logging.getLogger()
+          log.setLevel(logging.INFO)
+
+          log.info('Lambda container start')
+
+          def lambda_handler(event, context):
+              # log invoking event
+              log.info('event received:\n\n %s \n', event)
+              log.info('completed')
+      Role: !GetAtt LambdaExecutionRole.Arn
+      #ReservedConcurrentExecutions: 5
+
+Outputs:
+
+  LambdaFunctionArn:
+    Description: The Lambda Function Arn
+    Value: !GetAtt LambdaFunction.Arn

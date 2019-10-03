@@ -1,0 +1,6 @@
+template_path: "stress_test/stress_lambda_entry_point.yaml"
+
+parameters:
+  LogRetention: "7"
+  StressInvokerLambda:
+    !stack_output ohio/stress-test/invoker.yaml::LambdaFunctionName

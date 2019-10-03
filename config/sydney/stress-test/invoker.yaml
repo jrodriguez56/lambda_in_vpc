@@ -1,0 +1,4 @@
+template_path: "stress_test/stress_lambda_invoker.yaml"
+
+parameters:
+  LogRetention: "7"

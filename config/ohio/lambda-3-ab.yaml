@@ -1,0 +1,13 @@
+template_path: "lambda.yaml"
+
+parameters:
+  LambdaFunctionName: "lambda-3-ab"
+  LambdaFunctionDescription: "lambda-3-ab"
+  LogRetention: "7"
+  SubnetIds:
+    - !stack_output ohio/vpc.yaml::PrivateSubnet1AID
+    - !stack_output ohio/vpc.yaml::PrivateSubnet2AID
+    - !stack_output ohio/vpc.yaml::PrivateSubnet3AID
+  SecurityGroupIds:
+    - !stack_output ohio/sec-group-a.yaml::SecurityGroupId
+    - !stack_output ohio/sec-group-b.yaml::SecurityGroupId

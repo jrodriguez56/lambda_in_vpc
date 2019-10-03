@@ -1,0 +1,26 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Sample Security Group
+
+Parameters:
+
+  VpcId:
+    Type: String
+    Description: Id for a VPC to create the security group
+
+  SecurityGroupName:
+    Type: String
+Resources:
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Ref SecurityGroupName
+      GroupName: !Ref SecurityGroupName
+      VpcId: !Ref VpcId
+
+Outputs:
+
+  SecurityGroupId:
+    Description: Id for the security Group
+    Value: !GetAtt SecurityGroup.GroupId

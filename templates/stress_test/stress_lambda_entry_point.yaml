@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+
+  LogRetention:
+    Type: String
+    Description: Number of days to retain lambda logs
+    Default: 7
+
+  StressInvokerLambda:
+    Type: String
+    Description: Name of the Lambda function stress test invoking
+Resources:
+
+  LambdaFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: LambdaFunction
+    Properties:
+      RetentionInDays: !Ref LogRetention
+      LogGroupName: !Sub /aws/lambda/${LambdaFunction}
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AWSLambdaExecute"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+
+  InvokeLambdaPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: !Sub "${AWS::StackName}-invoke-lambda-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - "lambda:Invoke*"
+            Resource: "*"
+      Roles:
+        - !Ref LambdaExecutionRole
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Runtime: python3.6
+      Timeout: 898
+      TracingConfig:
+        Mode: Active
+      FunctionName: lambda-stress-entry-point
+      Description: lambda-stress-entry-point
+      Code:
+        ZipFile: |
+          import logging
+          import boto3
+          import os
+          import json
+
+          log = logging.getLogger()
+          log.setLevel(logging.INFO)
+          log.info('Lambda container start')
+          lambda_client = boto3.client('lambda')
+          STRESS_INVOKER_LAMBDA = os.environ['STRESS_INVOKER_LAMBDA']
+
+          def lambda_handler(event, context):
+              log.info('event received:\n\n %s \n', event)
+
+              parallel_lambda_invoke = event['parallel_lambda_invoke']
+              invocations_per_lambda = event['invocations_per_lambda']
+              lambda_name = event['lambda_name']
+
+              log.info('parallel_lambda_invoke: %s \n', parallel_lambda_invoke)
+              log.info('invocations_per_lambda: %s \n', invocations_per_lambda)
+              for i in range (0, int(parallel_lambda_invoke)):
+                  response = lambda_client.invoke(
+                      FunctionName=STRESS_INVOKER_LAMBDA,
+                      InvocationType='Event',
+                      Payload=json.dumps({'invocations': invocations_per_lambda, 'lambda_name': lambda_name})
+                  )
+                  log.info('parallel_lambda %s invocation %s started', STRESS_INVOKER_LAMBDA, i)
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          STRESS_INVOKER_LAMBDA: !Ref StressInvokerLambda
+
+Outputs:
+
+  LambdaFunctionArn:
+    Description: The Lambda Function Arn
+    Value: !GetAtt LambdaFunction.Arn

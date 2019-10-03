@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+
+  LogRetention:
+    Type: String
+    Description: Number of days to retain lambda logs
+    Default: 7
+
+Resources:
+
+  LambdaFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: LambdaFunction
+    Properties:
+      RetentionInDays: !Ref LogRetention
+      LogGroupName: !Sub /aws/lambda/${LambdaFunction}
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AWSLambdaExecute"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+
+  InvokeLambdaPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: !Sub "${AWS::StackName}-invoke-lambda-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - "lambda:Invoke*"
+            Resource: "*"
+      Roles:
+        - !Ref LambdaExecutionRole
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Runtime: python3.6
+      Timeout: 898
+      TracingConfig:
+        Mode: Active
+      FunctionName: lambda-stress-invoker
+      Description: lambda-stress-invoker
+      Code:
+        ZipFile: |
+          import logging
+          import boto3
+          import json
+
+          log = logging.getLogger()
+          log.setLevel(logging.INFO)
+          log.info('Lambda container start')
+          lambda_client = boto3.client('lambda')
+
+          def lambda_handler(event, context):
+              log.info('event received:\n\n %s \n', event)
+              invocations = event['invocations']
+              lambda_name = event['lambda_name']
+              log.info('invocations: %s \n', invocations)
+              log.info('lambda_name: %s \n', lambda_name)
+              for i in range (0, int(invocations)):
+                  response = lambda_client.invoke(
+                      FunctionName=lambda_name,
+                      InvocationType='Event'
+                  )
+                  log.info('invoked lambda %s %s times', lambda_name, i)
+      Role: !GetAtt LambdaExecutionRole.Arn
+
+Outputs:
+
+  LambdaFunctionArn:
+    Description: The Lambda Function Arn
+    Value: !GetAtt LambdaFunction.Arn
+
+
+  LambdaFunctionName:
+    Description: The Lambda Function Name
+    Value: !Ref LambdaFunction
